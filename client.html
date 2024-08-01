@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simplified RAG System UI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #response {
+            white-space: pre-wrap;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Foresight Labs Assignment</h1>
+    
+    <h2>1. Process PDF</h2>
+    <button onclick="processPDF()">Process PDF</button>
+    <p id="pdfStatus"></p>
+
+    <h2>2. Ask a Question</h2>
+    <input type="text" id="questionInput" placeholder="Enter your question">
+    <button onclick="askQuestion()">Ask</button>
+    <div id="response"></div>
+
+    <script>
+        async function processPDF() {
+            const statusElement = document.getElementById('pdfStatus');
+            statusElement.textContent = 'Processing PDF...';
+            
+            try {
+                const response = await fetch('http://localhost:3000/process_pdf');
+                const data = await response.json();
+                statusElement.textContent = `PDF processed. Status: ${data.status}`;
+            } catch (error) {
+                statusElement.textContent = `Error processing PDF: ${error.message}`;
+            }
+        }
+
+        async function askQuestion() {
+            const question = document.getElementById('questionInput').value;
+            const responseElement = document.getElementById('response');
+            responseElement.textContent = 'Waiting for response...';
+
+            try {
+                const response = await fetch(`http://localhost:3000/ask?q=${encodeURIComponent(question)}`);
+                const data = await response.json();
+                if (data.answer) {
+                    responseElement.textContent = data.answer;
+                } else if (data.error) {
+                    responseElement.textContent = `Error: ${data.error}`;
+                } else {
+                    responseElement.textContent = 'Received an unexpected response format';
+                }
+            } catch (error) {
+                responseElement.textContent = `Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
