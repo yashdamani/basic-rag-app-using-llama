@@ -1,95 +1,114 @@
-const fastify = require('fastify')({ logger: true })
-const cors = require('@fastify/cors')
-const fs = require('fs').promises
-const pdf = require('pdf-parse')
-const { exec } = require('child_process')
-const util = require('util')
-const path = require('path')
-const execPromise = util.promisify(exec)
-const multipart = require('@fastify/multipart')
+const fastify = require('fastify')({ logger: true });
+const cors = require('@fastify/cors');
+const fs = require('fs').promises;
+const { exec } = require('child_process');
+const util = require('util');
+const path = require('path');
+const execPromise = util.promisify(exec);
+const multipart = require('@fastify/multipart');
 
 function prettifyError(error) {
   if (error.stderr) {
-    const lines = error.stderr.split('\n')
-    const errorMessage = lines[lines.length - 2]
+    const lines = error.stderr.split('\n');
+    const errorMessage = lines[lines.length - 2];
     return {
       error: 'An error occurred',
       details: errorMessage,
       type: 'PythonScriptError',
-      command: error.cmd
-    }
+      command: error.cmd,
+    };
   }
   return {
     error: 'An unexpected error occurred',
     details: error.message,
-    type: error.name
-  }
+    type: error.name,
+  };
 }
 
-fastify.register(cors, { 
-  origin: true
-})
+fastify.register(cors, {
+  origin: true,
+});
+fastify.register(multipart);
 
-fastify.register(multipart)
-
-let pdfTextPath = ''
+let jsonlPath = '';
 
 fastify.get('/', async (request, reply) => {
-  return { message: 'Hello World' }
-})
+  return { message: 'Hello World' };
+});
 
-fastify.get('/process_pdf', async (request, reply) => {
+fastify.get('/process_emails', async (request, reply) => {
   try {
-    const pdfPath = 'enter_pdf_path'
-    const dataBuffer = await fs.readFile(pdfPath)
-    const data = await pdf(dataBuffer)
+    jsonlPath = '/Users/yashdamani/Desktop/foresight/emails.jsonl';
 
-    // Write PDF text to a temporary file
-    pdfTextPath = path.join(__dirname, 'temp_pdf_text.txt')
-    await fs.writeFile(pdfTextPath, data.text)
+    // Check if the file exists
+    await fs.access(jsonlPath);
 
-    const { stdout, stderr } = await execPromise(`python rag.py process "${pdfTextPath}"`)
+    const { stdout, stderr } = await execPromise(
+      `python rag.py process "${jsonlPath}"`,
+    );
     if (stderr) {
-      throw new Error(stderr)
+      throw new Error(stderr);
     }
-    const result = JSON.parse(stdout)
-    return { status: result.status }
+    const result = JSON.parse(stdout);
+    return { status: result.status };
   } catch (error) {
-    fastify.log.error(error)
-    return reply.code(500).send({ error: 'An error occurred while processing the PDF' })
+    fastify.log.error(error);
+    return reply
+      .code(500)
+      .send({ error: 'An error occurred while processing the emails' });
   }
-})
+});
 
 fastify.get('/ask', async (request, reply) => {
   try {
-    const question = request.query.q
+    const question = request.query.q;
     if (!question) {
-      return reply.code(400).send({ error: 'Question is required' })
+      return reply.code(400).send({ error: 'Question is required' });
     }
-    if (!pdfTextPath) {
-      return reply.code(400).send({ error: 'Please process a PDF first' })
+    if (!jsonlPath) {
+      return reply.code(400).send({ error: 'Please process emails first' });
+    }
+    const { stdout, stderr } = await execPromise(
+      `python rag.py query "${question}" "${jsonlPath}"`,
+    );
+
+    console.log('stdout:', stdout);
+    console.log('stderr:', stderr);
+
+    let response;
+    try {
+      response = JSON.parse(stdout);
+    } catch (error) {
+      console.error('Error parsing JSON:', error);
+      return reply
+        .code(500)
+        .send({ error: 'Error parsing response from Python script' });
     }
 
-    const { stdout, stderr } = await execPromise(`python rag.py query "${question}" "${pdfTextPath}"`)
-    if (stderr && !stderr.includes("Number of requested results")) {
-      throw new Error(stderr)
+    if (response.answer && response.answer.result) {
+      return { query: response.answer.query, answer: response.answer.result };
+    } else if (response.error) {
+      return reply.code(500).send({ error: response.error });
+    } else {
+      return reply
+        .code(500)
+        .send({ error: 'Unexpected response format from Python script' });
     }
-    const output = JSON.parse(stdout)
-	console.log(output)
-    return { query: output.answer.query, answer: output.answer.result }
   } catch (error) {
-    fastify.log.error(error)
-    return reply.code(500).send({ error: 'An error occurred while processing the question' })
+    fastify.log.error(error);
+    return reply
+      .code(500)
+      .send({ error: 'An error occurred while processing the question' });
   }
-})
+});
 
 const start = async () => {
   try {
-    await fastify.listen({ port: 3000 })
+    await fastify.listen({ port: 3000 });
   } catch (err) {
-    fastify.log.error(err)
-    process.exit(1)
+    fastify.log.error(err);
+    process.exit(1);
   }
-}
+};
 
-start()
+start();
