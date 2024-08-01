@@ -6,4 +6,5 @@ package-lock.json
 credentials.json
 emails.jsonl
 token.json
+faiss_index
 

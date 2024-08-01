@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Foresight Assignment</title>
+    <title>Email Search UI</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -89,8 +89,8 @@
 </head>
 <body>
     <div class="header">
-        <h1>Foresight Assignment</h1>
-        <button class="process-emails-button" onclick="processEmails()">Process Emails</button>
+        <h1>Email Search UI</h1>
+        <button id="processEmailsButton" class="process-emails-button">Process Emails</button>
     </div>
     
     <div id="emailStatus"></div>
@@ -132,6 +132,7 @@
             const responseTextElement = document.getElementById('responseText');
             const loadingTextElement = document.getElementById('loadingText');
             const emailStatusElement = document.getElementById('emailStatus');
+            const processEmailsButton = document.getElementById('processEmailsButton');
 
             searchInput.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
@@ -141,11 +142,14 @@
                 }
             });
 
+            processEmailsButton.addEventListener('click', processEmails);
+
             function resetUI() {
                 timestampElement.textContent = '';
                 responseTextElement.textContent = '';
                 loadingTextElement.classList.remove('hidden');
             }
+
             async function fetchResponse(query) {
                 try {
                     const response = await fetch(`http://localhost:3000/ask?q=${encodeURIComponent(query)}`);
@@ -164,20 +168,22 @@
                     responseTextElement.textContent = `Error: ${error.message}`;
                 }
             }
-        });
 
-        function processEmails() {
-            const emailStatusElement = document.getElementById('emailStatus');
-            emailStatusElement.textContent = 'Processing emails...';
-            fetch('http://localhost:3000/process_emails')
-                .then(response => response.json())
-                .then(data => {
-                    emailStatusElement.textContent = `Emails processed. Status: ${data.status}`;
-                })
-                .catch(error => {
+            async function processEmails() {
+                emailStatusElement.textContent = 'Processing emails...';
+                try {
+                    const response = await fetch('http://localhost:3000/process_emails');
+                    const data = await response.json();
+                    if (data.status === 'already_processed') {
+                        emailStatusElement.textContent = 'Emails were already processed. Ready for queries.';
+                    } else {
+                        emailStatusElement.textContent = `Emails processed. Status: ${data.status}`;
+                    }
+                } catch (error) {
                     emailStatusElement.textContent = `Error processing emails: ${error.message}`;
-                });
-        }
+                }
+            }
+        });
     </script>
 </body>
 </html>
