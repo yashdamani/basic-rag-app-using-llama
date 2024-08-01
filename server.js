@@ -41,7 +41,7 @@ fastify.get('/', async (request, reply) => {
 
 fastify.get('/process_emails', async (request, reply) => {
   try {
-    jsonlPath = '/Users/yashdamani/Desktop/foresight/emails.jsonl';
+    jsonlPath = 'path_to_file';
 
     await fs.access(jsonlPath);
 
